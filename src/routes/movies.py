@@ -5,10 +5,7 @@ from fastapi import (
     Query,
     Request,
 )
-from sqlalchemy import select, func
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import joinedload
 from urllib.parse import urlencode
 from pydantic import ValidationError
 
@@ -24,13 +21,7 @@ from crud.exceptions import (
     MovieNotFoundException,
 )
 
-from database import get_db, MovieModel
-from database.models import (
-    CountryModel,
-    GenreModel,
-    ActorModel,
-    LanguageModel,
-)
+from database import get_db
 from schemas.movies import (
     MovieResponseSchema,
     MovieListResponseSchema,
@@ -39,7 +30,7 @@ from schemas.movies import (
 )
 
 
-router = APIRouter()
+router = APIRouter(redirect_slashes=False)
 
 
 @router.get("/", response_model=MovieListResponseSchema)

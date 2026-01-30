@@ -78,7 +78,7 @@ async def get_movies_page(
             selectinload(MovieModel.actors),
             selectinload(MovieModel.languages),
         )
-        .order_by(MovieModel.id)
+        .order_by(MovieModel.id.desc())
         .offset(offset)
         .limit(limit)
     )
@@ -160,10 +160,6 @@ async def update_movie(
     db: AsyncSession
 ) -> MovieModel:
     movie = await get_movie_by_id(movie_id, db)
-    if not movie:
-        raise MovieNotFoundException(
-            f"Movie with ID {movie_id} does not exist."
-        )
 
     related_models = {
         "country": CountryModel,
