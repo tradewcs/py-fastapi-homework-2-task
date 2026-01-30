@@ -37,16 +37,16 @@ router = APIRouter(redirect_slashes=False)
 async def list_movies(
     request: Request,
     db: AsyncSession = Depends(get_db),
-    page: int = Query(0, ge=0),
+    page: int = Query(1, ge=1),
     per_page: int = Query(10, ge=1, le=100)
 ):
-    offset = page * per_page
+    offset = (page - 1) * per_page
     movies, total = await get_movies_page(db, offset, per_page)
     if offset >= total and total > 0:
         raise HTTPException(status_code=404, detail="Movie page not found")
 
     prev_page = None
-    if page > 0:
+    if page > 1:
         prev_page = (
             f"{request.url.path}?"
             f"{urlencode({page: page - 1, per_page: per_page})}"
