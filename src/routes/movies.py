@@ -68,7 +68,6 @@ async def list_movies(
             f"{urlencode({page: page + 1, per_page: per_page})}"
         )
 
-
     total_pages = (total + per_page - 1) // per_page
 
     return MovieListResponseSchema(
