@@ -9,12 +9,18 @@ from sqlalchemy import select, func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
+from urllib.parse import urlencode
+from pydantic import ValidationError
 
 from crud.movies import (
     get_movie_by_id,
     get_movies_page,
+    delete_movie as crud_delete_movie,
+    create_movie as crud_create_movie,
+    update_movie as crud_update_movie,
 )
 from crud.exceptions import (
+    MovieAlreadyExistsException,
     MovieNotFoundException,
 )
 
@@ -29,6 +35,7 @@ from schemas.movies import (
     MovieResponseSchema,
     MovieListResponseSchema,
     MovieDetailSchema,
+    MovieUpdateSchema,
 )
 
 
@@ -49,21 +56,18 @@ async def list_movies(
 
     prev_page = None
     if page > 0:
-        prev_page = str(
-            request.url.include_query_params(
-                page=page - 1,
-                per_page=per_page
-            )
+        prev_page = (
+            f"{request.url.path}?"
+            f"{urlencode({page: page - 1, per_page: per_page})}"
         )
 
     next_page = None
     if offset + per_page < total:
-        next_page = str(
-            request.url.include_query_params(
-                page=page + 1,
-                per_page=per_page
-            )
+        next_page = (
+            f"{request.url.path}?"
+            f"{urlencode({page: page + 1, per_page: per_page})}"
         )
+
 
     total_pages = (total + per_page - 1) // per_page
 
@@ -76,6 +80,20 @@ async def list_movies(
     )
 
 
+@router.post("/", response_model=MovieResponseSchema, status_code=201)
+async def create_movie(
+    movie_data: MovieDetailSchema,
+    db: AsyncSession = Depends(get_db)
+) -> MovieResponseSchema:
+    try:
+        movie = await crud_create_movie(movie_data, db)
+        return movie
+    except ValidationError as e:
+        raise HTTPException(status_code=400, detail=e.errors())
+    except MovieAlreadyExistsException as e:
+        raise HTTPException(status_code=409, detail=str(e))
+
+
 @router.get("/{movie_id}", response_model=MovieDetailSchema)
 async def get_movie(
     movie_id: int,
@@ -84,5 +102,31 @@ async def get_movie(
     try:
         movie = await get_movie_by_id(movie_id, db)
         return movie
+    except MovieNotFoundException as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.patch("/{movie_id}", response_model=MovieResponseSchema)
+async def update_movie(
+    movie_id: int,
+    movie_data: MovieUpdateSchema,
+    db: AsyncSession = Depends(get_db)
+) -> MovieResponseSchema:
+    try:
+        movie = await crud_update_movie(movie_id, movie_data, db)
+        return movie
+    except ValidationError as e:
+        raise HTTPException(status_code=400, detail=e.errors())
+    except MovieNotFoundException as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.delete("/{movie_id}", status_code=204)
+async def delete_movie(
+    movie_id: int,
+    db: AsyncSession = Depends(get_db)
+) -> None:
+    try:
+        await crud_delete_movie(movie_id, db)
     except MovieNotFoundException as e:
         raise HTTPException(status_code=404, detail=str(e))

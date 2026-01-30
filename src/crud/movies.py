@@ -11,8 +11,9 @@ from database.models import (
 )
 from schemas.movies import (
     MovieCreateSchema,
+    MovieUpdateSchema
 )
-from .exceptions import MovieNotFoundException
+from .exceptions import MovieNotFoundException, MovieAlreadyExistsException
 
 
 async def _get_or_create(db: AsyncSession, model, **kwargs):
@@ -90,6 +91,16 @@ async def create_movie(
     movie_data: MovieCreateSchema,
     db: AsyncSession
 ) -> MovieModel:
+    existing_movie = await db.execute(
+        select(MovieModel)
+        .where(MovieModel.name == movie_data.name)
+        .where(MovieModel.date == movie_data.date)
+    ).scalar_one_or_none()
+    if existing_movie:
+        raise MovieAlreadyExistsException(
+            f"Movie '{movie_data.name}' on date '{movie_data.date}' already exists."
+        )
+
     country = await _get_or_create(
         db,
         CountryModel,
@@ -136,6 +147,53 @@ async def create_movie(
         actors=actors,
         languages=languages
     )
+
+    db.add(movie)
+    await db.commit()
+    await db.refresh(movie)
+    return movie
+
+
+async def update_movie(
+    movie_id: int,
+    movie_data: dict,
+    db: AsyncSession
+) -> MovieModel:
+    movie = await get_movie_by_id(movie_id, db)
+    if not movie:
+        raise MovieNotFoundException(
+            f"Movie with ID {movie_id} does not exist."
+        )
+
+    related_models = {
+        "country": CountryModel,
+        "genres": GenreModel,
+        "actors": ActorModel,
+        "languages": LanguageModel,
+    }
+
+    for key, value in movie_data.items():
+        if value is None:
+            continue
+
+        if key in related_models:
+            model = related_models[key]
+
+            if isinstance(value, list):
+                related_objects = []
+                for item in value:
+                    obj = await _get_or_create(db, model, name=item)
+                    related_objects.append(obj)
+                setattr(movie, key, related_objects)
+            else:
+                obj = await _get_or_create(
+                    db,
+                    model,
+                    code=value if key == "country" else None
+                )
+                setattr(movie, key, obj)
+        else:
+            setattr(movie, key, value)
 
     db.add(movie)
     await db.commit()
