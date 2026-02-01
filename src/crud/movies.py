@@ -22,7 +22,7 @@ async def _get_or_create(db: AsyncSession, model, **kwargs):
         stmt = stmt.where(getattr(model, key) == value)
 
     result = await db.execute(stmt)
-    instance = result.scalar_one_or_none()
+    instance = result.scalars().first()
 
     if instance:
         return instance
@@ -91,11 +91,12 @@ async def create_movie(
     movie_data: MovieCreateSchema,
     db: AsyncSession
 ) -> MovieModel:
-    existing_movie = await db.execute(
+    result = await db.execute(
         select(MovieModel)
         .where(MovieModel.name == movie_data.name)
         .where(MovieModel.date == movie_data.date)
-    ).scalar_one_or_none()
+    )
+    existing_movie = result.scalars().first()
     if existing_movie:
         raise MovieAlreadyExistsException(
             f"Movie '{movie_data.name}' on date '{movie_data.date}' already exists."
@@ -143,7 +144,7 @@ async def create_movie(
         budget=movie_data.budget,
         revenue=movie_data.revenue,
         country=country,
-        genre=genres,
+        genres=genres,
         actors=actors,
         languages=languages
     )
@@ -151,7 +152,20 @@ async def create_movie(
     db.add(movie)
     await db.commit()
     await db.refresh(movie)
-    return movie
+
+    stmt = (
+        select(MovieModel)
+        .options(
+            selectinload(MovieModel.country),
+            selectinload(MovieModel.genres),
+            selectinload(MovieModel.actors),
+            selectinload(MovieModel.languages),
+        )
+        .where(MovieModel.id == movie.id)
+    )
+
+    result = await db.execute(stmt)
+    return result.scalar_one()
 
 
 async def update_movie(
