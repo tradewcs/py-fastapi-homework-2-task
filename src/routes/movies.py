@@ -59,14 +59,14 @@ async def list_movies(
     if page > 1:
         prev_page = (
             f"{path}?"
-            f"{urlencode({"page": page - 1, "per_page": per_page})}"
+            f"{urlencode({'page': page - 1, 'per_page': per_page})}"
         )
 
     next_page = None
     if offset + per_page < total:
         next_page = (
             f"{path}?"
-            f"{urlencode({"page": page + 1, "per_page": per_page})}"
+            f"{urlencode({'page': page + 1, 'per_page': per_page})}"
         )
 
     total_pages = (total + per_page - 1) // per_page
