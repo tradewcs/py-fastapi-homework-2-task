@@ -88,12 +88,12 @@ async def create_movie(
     try:
         movie = await crud_create_movie(movie_data, db)
         return MovieDetailSchema.model_validate(movie)
-    except ValidationError as e:
+    except ValidationError:
         return JSONResponse(
             status_code=400,
             content={"detail": "Invalid input data."}
         )
-    except MovieAlreadyExistsException as e:
+    except MovieAlreadyExistsException:
         return JSONResponse(
             status_code=409,
             content={
@@ -124,11 +124,11 @@ async def get_movie(
                 code=movie.country.code,
                 name=movie.country.name
             ) if movie.country else None,
-            genres=[NamedEntityResponseSchema(id=g.id, name=g.name) for g in movie.genres],
-            actors=[NamedEntityResponseSchema(id=a.id, name=a.name) for a in movie.actors],
-            languages=[NamedEntityResponseSchema(id=l.id, name=l.name) for l in movie.languages],
+            genres=[NamedEntityResponseSchema(id=genre.id, name=genre.name) for genre in movie.genres],
+            actors=[NamedEntityResponseSchema(id=actor.id, name=actor.name) for actor in movie.actors],
+            languages=[NamedEntityResponseSchema(id=language.id, name=language.name) for language in movie.languages],
         )
-    except MovieNotFoundException as e:
+    except MovieNotFoundException:
         return JSONResponse(
             status_code=404,
             content={"detail": "Movie with the given ID was not found."}
@@ -142,17 +142,17 @@ async def update_movie(
     db: AsyncSession = Depends(get_db)
 ) -> JSONResponse:
     try:
-        movie = await crud_update_movie(movie_id, movie_data, db)
+        await crud_update_movie(movie_id, movie_data, db)
         return JSONResponse(
             status_code=200,
             content={"detail": "Movie updated successfully."}
         )
-    except ValidationError as e:
+    except ValidationError:
         return JSONResponse(
             status_code=400,
             content={"detail": "Invalid input data."}
         )
-    except MovieNotFoundException as e:
+    except MovieNotFoundException:
         return JSONResponse(
             status_code=404,
             content={"detail": "Movie with the given ID was not found."}
@@ -167,7 +167,7 @@ async def delete_movie(
     try:
         await crud_delete_movie(movie_id, db)
         return JSONResponse(status_code=204, content=None)
-    except MovieNotFoundException as e:
+    except MovieNotFoundException:
         return JSONResponse(
             status_code=404,
             content={"detail": "Movie with the given ID was not found."}
